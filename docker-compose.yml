@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+  # Redis for distributed frontier
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+  
+  # PostgreSQL for storage
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: deepharvest
+      POSTGRES_USER: crawler
+      POSTGRES_PASSWORD: crawler123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+  
+  # Coordinator
+  coordinator:
+    build: .
+    depends_on:
+      - redis
+      - postgres
+    environment:
+      REDIS_URL: redis://redis:6379
+      POSTGRES_URL: postgresql://crawler:crawler123@postgres:5432/deepharvest
+    command: deepharvest crawl --distributed --redis-url redis://redis:6379
+    volumes:
+      - ./crawl_output:/app/crawl_output
+  
+  # Worker 1
+  worker1:
+    build: .
+    depends_on:
+      - redis
+      - postgres
+    environment:
+      REDIS_URL: redis://redis:6379
+      WORKER_ID: worker-1
+    command: python -m deepharvest.distributed.worker
+    volumes:
+      - ./crawl_output:/app/crawl_output
+  
+  # Worker 2
+  worker2:
+    build: .
+    depends_on:
+      - redis
+      - postgres
+    environment:
+      REDIS_URL: redis://redis:6379
+      WORKER_ID: worker-2
+    command: python -m deepharvest.distributed.worker
+    volumes:
+      - ./crawl_output:/app/crawl_output
+  
+  # Prometheus for monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+  
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
+
+volumes:
+  redis_data:
+  postgres_data:
+  prometheus_data:
+  grafana_data:
+

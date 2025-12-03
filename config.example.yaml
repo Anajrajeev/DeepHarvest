@@ -1,0 +1,79 @@
+# DeepHarvest Configuration Example
+# Seed URLs
+seed_urls:
+  - https://example.com
+  - https://example.org
+
+# Crawl Strategy
+strategy: breadth_first  # Options: breadth_first, depth_first, priority
+max_depth: 5  # null for infinite
+follow_subdomains: true
+follow_external: false
+
+# Content Types
+extract_text: true
+extract_pdfs: true
+extract_office: true
+extract_images: true
+extract_videos: true
+extract_audio: true
+
+# JavaScript Rendering
+enable_js: true
+wait_for_js_ms: 2000
+handle_infinite_scroll: true
+
+# Storage
+output_dir: ./crawl_output
+streaming_threshold_mb: 50
+
+# Distributed Mode
+distributed: false
+redis_url: redis://localhost:6379
+worker_id: null
+
+# Rate Limiting
+concurrent_requests: 10
+per_host_concurrent: 2
+request_delay_ms: 100
+
+# Resumability
+checkpoint_interval: 100
+state_file: crawl_state.json
+
+# ML Features
+enable_ml_extraction: true
+enable_trap_detection: true
+enable_soft404_detection: true
+
+# Monitoring
+enable_metrics: true
+metrics_port: 9090
+
+# User Agent
+user_agent: "DeepHarvest/1.0 (+https://github.com/deepharvest/deepharvest)"
+
+# Extraction Rules
+css_selectors:
+  title: "h1.title, .article-title"
+  content: "article.content, .main-content"
+  author: ".author-name, .byline"
+  date: ".publish-date, time[datetime]"
+
+xpath_rules:
+  title: "//h1[@class='title']"
+  content: "//article[@class='content']"
+
+# URL Patterns to Exclude
+exclude_patterns:
+  - ".*\\.pdf$"
+  - ".*\\.zip$"
+  - "/admin/.*"
+  - "/login.*"
+
+# Custom HTTP Headers
+headers:
+  Accept: "text/html,application/xhtml+xml,application/xml"
+  Accept-Language: "en-US,en;q=0.9"
+  Cache-Control: "no-cache"
+
