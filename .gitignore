@@ -59,6 +59,7 @@ Thumbs.db
 
 # Project specific
 crawl_output/
+test_output/
 crawl_state.json
 crash_reports/
 *.log

@@ -6,6 +6,8 @@ import asyncio
 import yaml
 from pathlib import Path
 import json
+import logging
+import sys
 
 @click.group()
 @click.version_option(version='1.0.0')
@@ -22,11 +24,15 @@ def cli():
 @click.option('--distributed', is_flag=True, help='Run in distributed mode')
 @click.option('--redis-url', help='Redis URL for distributed mode')
 @click.option('--workers', type=int, default=1, help='Number of workers')
-def crawl(urls, config, depth, output, js, distributed, redis_url, workers):
+@click.option('--max-urls', type=int, default=None, help='Maximum total URLs to crawl')
+@click.option('--max-size', type=int, default=None, help='Maximum response size in MB')
+@click.option('--max-pages-per-domain', type=int, default=None, help='Maximum pages to crawl per domain')
+@click.option('--time-limit', type=int, default=None, help='Maximum crawl time in seconds')
+def crawl(urls, config, depth, output, js, distributed, redis_url, workers, max_urls, max_size, max_pages_per_domain, time_limit):
     """Start crawling URLs"""
     
-    click.echo(f"🚀 Starting DeepHarvest v1.0.0")
-    click.echo(f"📍 Crawling {len(urls)} seed URL(s)")
+    click.echo(f"Starting DeepHarvest v1.0.0")
+    click.echo(f"Crawling {len(urls)} seed URL(s)")
     
     # Load config
     if config:
@@ -42,10 +48,25 @@ def crawl(urls, config, depth, output, js, distributed, redis_url, workers):
         cfg['output_dir'] = output
     cfg['enable_js'] = js
     cfg['distributed'] = distributed
+    if max_urls:
+        cfg['max_urls'] = max_urls
+    if max_size:
+        cfg['max_size_mb'] = max_size
+    if max_pages_per_domain:
+        cfg['max_pages_per_domain'] = max_pages_per_domain
+    if time_limit:
+        cfg['time_limit_seconds'] = time_limit
     
     if distributed and not redis_url:
-        click.echo("❌ Error: --redis-url required for distributed mode", err=True)
+        click.echo("Error: --redis-url required for distributed mode", err=True)
         return
+    
+    # Configure logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(message)s',
+        stream=sys.stdout
+    )
     
     # Run crawler
     async def run():
@@ -62,14 +83,26 @@ def crawl(urls, config, depth, output, js, distributed, redis_url, workers):
         crawler = DeepHarvest(crawl_config)
         
         try:
+            click.echo("Initializing crawler...")
             await crawler.initialize()
+            click.echo(f"Starting crawl...")
             await crawler.crawl()
+            
+            # Show stats
+            stats = crawler.stats
+            click.echo(f"\nCrawl Statistics:")
+            click.echo(f"  URLs Processed: {stats.processed}")
+            click.echo(f"  Successful: {stats.success}")
+            click.echo(f"  Errors: {stats.errors}")
+            if stats.bytes_downloaded > 0:
+                click.echo(f"  Bytes Downloaded: {stats.bytes_downloaded:,}")
+            click.echo(f"  Output Directory: {crawl_config.output_dir}")
         finally:
             await crawler.shutdown()
     
     asyncio.run(run())
     
-    click.echo("✅ Crawl completed!")
+    click.echo("Crawl completed!")
 
 @cli.command()
 @click.option('--state-file', default='crawl_state.json', help='State file path')
@@ -77,10 +110,10 @@ def resume(state_file):
     """Resume a previous crawl"""
     
     if not Path(state_file).exists():
-        click.echo(f"❌ State file not found: {state_file}", err=True)
+        click.echo(f"State file not found: {state_file}", err=True)
         return
     
-    click.echo(f"🔄 Resuming crawl from {state_file}")
+    click.echo(f"Resuming crawl from {state_file}")
     
     # Load state and resume
     with open(state_file) as f:
@@ -104,7 +137,7 @@ def status(redis_url):
         
         stats = await frontier.get_stats()
         
-        click.echo("\n📊 Crawl Status")
+        click.echo("\nCrawl Status")
         click.echo("=" * 50)
         click.echo(f"Queued:      {stats['queued']:,}")
         click.echo(f"Processed:   {stats['processed']:,}")
@@ -122,7 +155,7 @@ def status(redis_url):
 def export_graph(output_dir, format):
     """Export site graph"""
     
-    click.echo(f"📈 Exporting site graph to {format}")
+    click.echo(f"Exporting site graph to {format}")
     
     # Implementation would generate and export graph
     click.echo("Graph exported successfully!")
@@ -131,7 +164,7 @@ def export_graph(output_dir, format):
 def list_plugins():
     """List available plugins"""
     
-    click.echo("\n🔌 Available Plugins")
+    click.echo("\nAvailable Plugins")
     click.echo("=" * 50)
     click.echo("• speech_to_text.whisper - OpenAI Whisper STT")
     click.echo("• extractors.custom - Custom content extractor")

@@ -37,15 +37,60 @@ pip install deepharvest
 
 ### Basic Usage
 
+#### Simple Crawls
+
 ```bash
-# Simple crawl
+# Basic crawl with depth limit
 deepharvest crawl https://example.com --depth 5 --output ./output
 
-# With JavaScript
-deepharvest crawl https://example.com --js --depth 3
+# Crawl without JavaScript rendering (faster)
+deepharvest crawl https://example.com --no-js --depth 3
 
-# Distributed mode
-deepharvest crawl https://example.com --distributed --redis-url redis://localhost:6379 --workers 5
+# Crawl with JavaScript rendering (for SPAs)
+deepharvest crawl https://example.com --js --depth 3
+```
+
+#### Limiting Crawl Scope
+
+```bash
+# Limit total number of URLs crawled
+deepharvest crawl https://example.com --max-urls 1000 --depth 5
+
+# Limit response size (skip large files)
+deepharvest crawl https://example.com --max-size 10 --depth 3
+
+# Limit pages per domain (useful for multi-domain crawls)
+deepharvest crawl https://example.com --max-pages-per-domain 50 --depth 5
+
+# Set time limit (stop after specified seconds)
+deepharvest crawl https://example.com --time-limit 3600 --depth 5
+
+# Combine multiple limits
+deepharvest crawl https://example.com \
+  --depth 5 \
+  --max-urls 500 \
+  --max-pages-per-domain 100 \
+  --max-size 5 \
+  --time-limit 1800 \
+  --output ./output
+```
+
+#### Distributed Crawling
+
+```bash
+# Run in distributed mode with Redis
+deepharvest crawl https://example.com \
+  --distributed \
+  --redis-url redis://localhost:6379 \
+  --workers 5 \
+  --depth 10
+```
+
+#### Using Configuration Files
+
+```bash
+# Use a YAML config file
+deepharvest crawl --config config.yaml
 ```
 
 ### Python API

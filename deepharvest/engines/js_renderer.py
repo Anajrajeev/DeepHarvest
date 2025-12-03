@@ -43,8 +43,11 @@ class JSRenderer:
             html = await page.content()
             
             # Update response with rendered HTML
-            response.text = html
-            response.content = html.encode('utf-8')
+            # Set internal attributes directly since text/content are properties
+            if hasattr(response, '_text'):
+                response._text = html
+            if hasattr(response, '_content'):
+                response._content = html.encode('utf-8')
             
             return response
             

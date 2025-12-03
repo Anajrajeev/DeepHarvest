@@ -19,16 +19,24 @@ class AdvancedFetcher:
     
     async def initialize(self):
         """Initialize HTTP session with HTTP/2 support"""
+        import sys
+        import aiohttp
+        from aiohttp import ClientSession, TCPConnector
+        
+        # Use ThreadedResolver on Windows to avoid aiodns issues
+        resolver = None
+        if sys.platform == 'win32':
+            from aiohttp.resolver import ThreadedResolver
+            resolver = ThreadedResolver()
+        
         # Try HTTP/2 connector
         try:
-            import aiohttp
-            from aiohttp import ClientSession, TCPConnector
-            
             # Create connector with HTTP/2 support if available
             connector = TCPConnector(
                 limit=self.config.concurrent_requests,
                 limit_per_host=self.config.per_host_concurrent,
-                ssl=False  # Can be configured
+                ssl=False,  # Can be configured
+                resolver=resolver  # Use Windows-compatible resolver
             )
             
             timeout = aiohttp.ClientTimeout(total=30)
@@ -44,8 +52,13 @@ class AdvancedFetcher:
             )
         except Exception as e:
             logger.warning(f"Failed to initialize HTTP/2 session: {e}, falling back to HTTP/1.1")
-            # Fallback to standard session
-            self.session = aiohttp.ClientSession()
+            # Fallback to standard session with Windows-compatible resolver
+            try:
+                self.session = ClientSession(resolver=resolver)
+            except Exception as e2:
+                logger.error(f"Failed to initialize fallback session: {e2}")
+                # Last resort: use default resolver
+                self.session = ClientSession()
     
     async def fetch(self, url: str, retries: int = 3):
         """Fetch URL with retries, compression, and error handling"""
@@ -65,20 +78,56 @@ class AdvancedFetcher:
                             self._text = None
                         
                         @property
-                        async def content(self):
-                            if self._content is None:
-                                self._content = await response.read()
+                        def content(self):
                             return self._content
                         
                         @property
-                        async def text(self):
-                            if self._text is None:
-                                self._text = await response.text()
+                        def text(self):
                             return self._text
                     
                     resp_obj = Response(response)
                     resp_obj._content = await response.read()
-                    resp_obj._text = await response.text()
+                    
+                    # Try to decode text with proper encoding detection
+                    try:
+                        # First try aiohttp's built-in text() which uses charset from headers
+                        resp_obj._text = await response.text()
+                    except (UnicodeDecodeError, LookupError) as e:
+                        # If that fails, try encoding detection
+                        try:
+                            import chardet
+                            detected = chardet.detect(resp_obj._content)
+                            encoding = detected.get('encoding', 'utf-8')
+                            if encoding:
+                                resp_obj._text = resp_obj._content.decode(encoding, errors='replace')
+                            else:
+                                # Fallback to utf-8 with error replacement
+                                resp_obj._text = resp_obj._content.decode('utf-8', errors='replace')
+                        except ImportError:
+                            # If chardet not available, try charset_normalizer
+                            try:
+                                from charset_normalizer import detect
+                                detected = detect(resp_obj._content)
+                                if detected and len(detected) > 0:
+                                    encoding = detected[0].encoding
+                                    resp_obj._text = resp_obj._content.decode(encoding, errors='replace')
+                                else:
+                                    resp_obj._text = resp_obj._content.decode('utf-8', errors='replace')
+                            except ImportError:
+                                # Last resort: try common encodings
+                                for enc in ['utf-8', 'latin-1', 'iso-8859-1', 'cp1252']:
+                                    try:
+                                        resp_obj._text = resp_obj._content.decode(enc, errors='strict')
+                                        break
+                                    except (UnicodeDecodeError, LookupError):
+                                        continue
+                                else:
+                                    # If all fail, use replace mode
+                                    resp_obj._text = resp_obj._content.decode('utf-8', errors='replace')
+                        except Exception as decode_error:
+                            logger.warning(f"Encoding detection failed for {url}: {decode_error}, using utf-8 with replace")
+                            resp_obj._text = resp_obj._content.decode('utf-8', errors='replace')
+                    
                     return resp_obj
                     
             except aiohttp.ClientError as e:

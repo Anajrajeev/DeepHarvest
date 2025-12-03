@@ -10,13 +10,13 @@ class Soft404Detector:
     """Detect soft 404 pages (pages that return 200 but are actually errors)"""
     
     SOFT_404_INDICATORS = [
-        'not found',
-        '404',
         'page not found',
+        '404 error',
+        'not found',
         'does not exist',
         'no longer available',
-        'error',
-        'oops'
+        'this page cannot be found',
+        'the page you are looking for',
     ]
     
     async def load(self):
@@ -40,22 +40,34 @@ class Soft404Detector:
         
         text = response.text.lower()
         
-        # Count indicators
+        # Require longer content to avoid false positives
+        if len(text) < 200:
+            # Very short pages with specific error indicators
+            if any(indicator in text for indicator in ['page not found', '404 error', 'not found']):
+                return True
+            return False
+        
+        # Count specific indicators (not generic words like "error")
         indicator_count = sum(1 for indicator in self.SOFT_404_INDICATORS if indicator in text)
         
-        # Check content length (very short pages often are errors)
-        if len(text) < 500 and indicator_count > 0:
+        # Require multiple indicators for longer pages
+        if len(text) < 1000 and indicator_count >= 2:
             return True
         
         if indicator_count >= 3:
             return True
         
-        # Check title
-        soup = BeautifulSoup(response.text, 'lxml')
-        title = soup.find('title')
-        
-        if title and any(indicator in title.get_text().lower() for indicator in self.SOFT_404_INDICATORS):
-            return True
+        # Check title - more specific
+        try:
+            soup = BeautifulSoup(response.text, 'lxml')
+            title = soup.find('title')
+            
+            if title:
+                title_text = title.get_text().lower()
+                if any(indicator in title_text for indicator in ['404', 'not found', 'page not found', 'error']):
+                    return True
+        except:
+            pass
         
         return False
 

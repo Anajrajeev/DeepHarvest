@@ -3,6 +3,7 @@ Core Crawler Orchestrator
 """
 import asyncio
 import logging
+import time
 from typing import Optional, Dict, Any, List, Set
 from enum import Enum
 from dataclasses import dataclass, field
@@ -54,6 +55,12 @@ class CrawlConfig:
     per_host_concurrent: int = 2
     request_delay_ms: int = 100
     
+    # Crawl limits
+    max_urls: Optional[int] = None  # Maximum total URLs to crawl
+    max_size_mb: Optional[int] = None  # Maximum response size in MB
+    max_pages_per_domain: Optional[int] = None  # Maximum pages per domain
+    time_limit_seconds: Optional[int] = None  # Maximum crawl time in seconds
+    
     # Resumability
     checkpoint_interval: int = 100
     state_file: str = "crawl_state.json"
@@ -81,6 +88,10 @@ class DeepHarvest:
         self.ml_models = {}
         self.visited: Set[str] = set()
         self.stats = CrawlStats()
+        self.domain_page_counts: Dict[str, int] = {}  # Track pages per domain
+        self.crawl_start_time: Optional[float] = None  # Track crawl start time
+        self._stop_flag = asyncio.Event()  # Signal to stop all workers
+        self._stats_lock = asyncio.Lock()  # Lock for thread-safe stats updates
         
     async def initialize(self):
         """Initialize all subsystems"""
@@ -153,10 +164,13 @@ class DeepHarvest:
     async def crawl(self):
         """Main crawl loop"""
         logger.info(f"Starting crawl with {len(self.config.seed_urls)} seed URLs")
+        self.crawl_start_time = time.time()
+        self._stop_flag.clear()  # Reset stop flag
         
         # Add seed URLs to frontier
         for url in self.config.seed_urls:
-            await self.frontier.add(url, depth=0, priority=1.0)
+            if not self._stop_flag.is_set():
+                await self.frontier.add(url, depth=0, priority=1.0)
         
         # Create worker tasks
         workers = [
@@ -165,60 +179,182 @@ class DeepHarvest:
         ]
         
         # Wait for all workers to complete
-        await asyncio.gather(*workers)
+        await asyncio.gather(*workers, return_exceptions=True)
+        
+        # Stop frontier from accepting new URLs
+        if hasattr(self.frontier, 'stop'):
+            self.frontier.stop()
         
         logger.info("Crawl completed")
         await self._generate_reports()
     
+    async def _check_limits(self) -> bool:
+        """Check if any limits have been reached. Returns True if should stop."""
+        # Check stop flag first
+        if self._stop_flag.is_set():
+            return True
+        
+        # Check time limit
+        if self.config.time_limit_seconds and self.crawl_start_time:
+            elapsed = time.time() - self.crawl_start_time
+            if elapsed >= self.config.time_limit_seconds:
+                logger.info(f"Time limit reached ({self.config.time_limit_seconds}s), stopping crawl")
+                self._stop_flag.set()
+                return True
+        
+        # Check max URLs limit (thread-safe)
+        if self.config.max_urls:
+            async with self._stats_lock:
+                if self.stats.processed >= self.config.max_urls:
+                    logger.info(f"Max URLs limit reached ({self.config.max_urls}), stopping crawl")
+                    self._stop_flag.set()
+                    return True
+        
+        return False
+    
     async def _worker(self, worker_id: int):
         """Worker coroutine for processing URLs"""
+        consecutive_empty = 0
+        max_empty_checks = 10  # Exit after 10 consecutive empty checks (1 second total)
+        
         while True:
+            # Check limits BEFORE getting URL from queue
+            if await self._check_limits():
+                break
+            
             # Get next URL from frontier
             item = await self.frontier.get()
             if item is None:
-                break
+                # If queue is empty and stop flag is set, we're done
+                if self._stop_flag.is_set():
+                    break
+                # Track consecutive empty checks
+                consecutive_empty += 1
+                if consecutive_empty >= max_empty_checks:
+                    # Queue has been empty for a while, likely done
+                    logger.debug(f"Worker {worker_id}: Queue empty for {max_empty_checks} checks, exiting")
+                    break
+                # Otherwise, wait a bit and check again
+                await asyncio.sleep(0.1)
+                continue
+            
+            # Reset empty counter when we get an item
+            consecutive_empty = 0
             
             url, depth, priority = item
             
+            # Double-check limits after getting URL (in case another worker hit limit)
+            if await self._check_limits():
+                # Put URL back in queue if we're stopping
+                await self.frontier.add(url, depth, priority)
+                break
+            
+            # Check limit right before processing (most critical check)
+            async with self._stats_lock:
+                if self.config.max_urls and self.stats.processed >= self.config.max_urls:
+                    await self.frontier.add(url, depth, priority)
+                    break
+            
             try:
                 await self._process_url(url, depth)
+            except KeyboardInterrupt:
+                # Allow graceful shutdown on Ctrl+C
+                logger.info("Crawl interrupted by user")
+                self._stop_flag.set()
+                break
             except Exception as e:
                 logger.error(f"Error processing {url}: {e}", exc_info=True)
-                self.stats.errors += 1
+                async with self._stats_lock:
+                    self.stats.errors += 1
+                # Continue processing other URLs even if one fails
             finally:
                 await self.frontier.mark_done(url)
-                self.stats.processed += 1
+                async with self._stats_lock:
+                    self.stats.processed += 1
+                    processed = self.stats.processed
                 
                 # Checkpoint periodically
-                if self.stats.processed % self.config.checkpoint_interval == 0:
+                if processed % self.config.checkpoint_interval == 0:
                     await self._save_checkpoint()
     
     async def _process_url(self, url: str, depth: int):
         """Process a single URL"""
-        logger.debug(f"Processing {url} at depth {depth}")
+        logger.info(f"Processing {url} (depth {depth})")
         
         # Check if already visited (distributed-safe)
         if await self._is_visited(url):
             return
         
+        # Check max pages per domain limit
+        if self.config.max_pages_per_domain:
+            parsed = urlparse(url)
+            domain = f"{parsed.scheme}://{parsed.netloc}"
+            page_count = self.domain_page_counts.get(domain, 0)
+            if page_count >= self.config.max_pages_per_domain:
+                logger.info(f"Max pages per domain limit reached for {domain} ({self.config.max_pages_per_domain}), skipping {url}")
+                return
+        
+        # For sites with large headers (Twitter/X), use Playwright directly
+        use_js_directly = any(domain in url.lower() for domain in ['twitter.com', 'x.com'])
+        
         # Fetch content
-        response = await self.fetcher.fetch(url)
-        if response is None:
-            return
+        if use_js_directly and self.config.enable_js and self.js_engine:
+            # Use Playwright directly for Twitter to avoid header size issues
+            try:
+                from ..core.fetcher import AdvancedFetcher
+                # Create a minimal response object for Playwright to populate
+                class MinimalResponse:
+                    def __init__(self):
+                        self.status_code = 200
+                        self.headers = {}
+                        self.url = url
+                        self._content = None
+                        self._text = None
+                    
+                    @property
+                    def content(self):
+                        return self._content
+                    
+                    @property
+                    def text(self):
+                        return self._text
+                
+                response = MinimalResponse()
+                response = await self.js_engine.render(url, response)
+                if not response or not hasattr(response, '_text') or not response._text:
+                    logger.warning(f"Failed to render {url} with Playwright")
+                    return
+            except Exception as e:
+                logger.error(f"Error using Playwright for {url}: {e}")
+                return
+        else:
+            response = await self.fetcher.fetch(url)
+            if response is None:
+                return
+        
+        # Check max response size limit
+        if self.config.max_size_mb and hasattr(response, '_content') and response._content:
+            size_mb = len(response._content) / (1024 * 1024)
+            if size_mb > self.config.max_size_mb:
+                logger.warning(f"Response size ({size_mb:.2f}MB) exceeds limit ({self.config.max_size_mb}MB), skipping {url}")
+                return
         
         # Mark as visited
         await self._mark_visited(url)
         
         # Render JavaScript if needed (auto-detect blank HTML)
-        if self.config.enable_js:
-            needs_js = self._needs_js_rendering(response)
+        # Also use JS for sites known to have large headers (Twitter, etc.)
+        use_js_for_large_headers = any(domain in url.lower() for domain in ['twitter.com', 'x.com'])
+        
+        if self.config.enable_js or use_js_for_large_headers:
+            needs_js = self._needs_js_rendering(response) or use_js_for_large_headers
             # Also check if HTML is mostly empty (likely needs JS)
             if not needs_js and hasattr(response, 'text'):
                 text_len = len(response.text.strip())
                 if text_len < 500:  # Very short HTML, likely needs JS
                     needs_js = True
             
-            if needs_js:
+            if needs_js and self.js_engine:
                 response = await self.js_engine.render(url, response)
         
         # Detect traps
@@ -249,15 +385,31 @@ class DeepHarvest:
         # Store results
         await self._store_result(url, content, structured_data, response)
         
-        # Extract and enqueue new URLs
-        if self.config.max_depth is None or depth < self.config.max_depth:
+        # Update domain page count
+        if self.config.max_pages_per_domain:
+            parsed = urlparse(url)
+            domain = f"{parsed.scheme}://{parsed.netloc}"
+            self.domain_page_counts[domain] = self.domain_page_counts.get(domain, 0) + 1
+        
+        # Extract and enqueue new URLs (only if not stopping)
+        if not self._stop_flag.is_set() and (self.config.max_depth is None or depth < self.config.max_depth):
             new_urls = await self._extract_urls(url, response)
+            logger.info(f"Found {len(new_urls)} links from {url}")
+            added_count = 0
             for new_url in new_urls:
+                # Check limits before adding each URL
+                if await self._check_limits():
+                    break
                 if self._should_follow(url, new_url):
                     priority = await self._calculate_priority(new_url)
                     await self.frontier.add(new_url, depth + 1, priority)
+                    added_count += 1
+            if added_count > 0:
+                logger.info(f"Added {added_count} URLs to crawl queue")
         
-        self.stats.success += 1
+        async with self._stats_lock:
+            self.stats.success += 1
+        logger.info(f"Successfully processed {url}")
     
     async def _extract_content(self, response) -> Dict[str, Any]:
         """Extract content based on content type"""

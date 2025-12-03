@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 from pathlib import Path
 
 # Read README
-long_description = (Path(__file__).parent / "README.md").read_text() if (Path(__file__).parent / "README.md").exists() else "DeepHarvest - The World's Most Complete Web Crawler"
+long_description = (Path(__file__).parent / "README.md").read_text(encoding="utf-8") if (Path(__file__).parent / "README.md").exists() else "DeepHarvest - The World's Most Complete Web Crawler"
 
 setup(
     name="deepharvest",
@@ -20,6 +20,7 @@ setup(
         "Source Code": "https://github.com/deepharvest/deepharvest",
     },
     packages=find_packages(),
+    license="Apache-2.0",
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
