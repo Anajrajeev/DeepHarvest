@@ -10,7 +10,7 @@ import logging
 import sys
 
 @click.group()
-@click.version_option(version='1.0.0')
+@click.version_option(version='1.0.1')
 def cli():
     """DeepHarvest - The World's Most Complete Web Crawler"""
     pass
