@@ -1,2 +1,1 @@
 """Downloader plugins"""
-

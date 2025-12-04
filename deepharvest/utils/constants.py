@@ -1,11 +1,13 @@
 """
 Constants for DeepHarvest
 """
+
 from enum import Enum
 
 
 class PageType(Enum):
     """Page type enumeration"""
+
     NEWS = "news"
     BLOG = "blog"
     PRODUCT = "product"
@@ -17,6 +19,7 @@ class PageType(Enum):
 
 class ExportFormat(Enum):
     """Export format enumeration"""
+
     JSON = "json"
     JSONL = "jsonl"
     CSV = "csv"
@@ -45,4 +48,3 @@ DEFAULT_STREAMING_THRESHOLD_MB = 50
 DEFAULT_MAX_RETRIES = 3
 DEFAULT_RETRY_DELAY = 1.0
 DEFAULT_BACKOFF_FACTOR = 2.0
-

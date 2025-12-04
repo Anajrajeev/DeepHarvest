@@ -1,2 +1,1 @@
 """Distributed architecture"""
-

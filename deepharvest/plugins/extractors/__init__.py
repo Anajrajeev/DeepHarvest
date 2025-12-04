@@ -1,2 +1,1 @@
 """Extractor plugins"""
-

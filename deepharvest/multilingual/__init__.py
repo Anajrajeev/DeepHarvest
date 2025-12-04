@@ -1,2 +1,1 @@
 """Multilingual support"""
-
