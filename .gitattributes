@@ -1,0 +1,5 @@
+# Exclude test output directories from language statistics
+deepharvest_test_output/** linguist-vendored
+test_output/** linguist-vendored
+tests/deepharvest_test_output/** linguist-vendored
+

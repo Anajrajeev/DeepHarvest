@@ -60,8 +60,13 @@ Thumbs.db
 # Project specific
 crawl_output/
 test_output/
+deepharvest_test_output/
 crawl_state.json
 crash_reports/
 *.log
 .pytest_cache/
+
+# Test output HTML files (keep JSON only)
+**/test_output/**/*.html
+**/deepharvest_test_output/**/*.html
 
