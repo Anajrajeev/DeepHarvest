@@ -42,10 +42,12 @@ jobs:
     
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
+      continue-on-error: true
       with:
         file: ./coverage.xml
         flags: unittests
         name: codecov-umbrella
+        token: ${{ secrets.CODECOV_TOKEN }}
     
     - name: Check code formatting
       run: |
