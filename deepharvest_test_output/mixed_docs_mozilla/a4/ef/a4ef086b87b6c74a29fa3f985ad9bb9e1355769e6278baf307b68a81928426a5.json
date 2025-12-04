@@ -1,0 +1,41 @@
+{
+  "url": "https://developer.mozilla.org/en-US/docs/Web/URI",
+  "content": {
+    "text": {
+      "title": "URIs | MDN",
+      "text": "URIs | MDN Skip to main content Skip to search MDN HTML HTML: Markup language HTML reference Elements Global attributes Attributes See all\u2026 HTML guides Responsive images HTML cheatsheet Date & time formats See all\u2026 Markup languages SVG MathML XML CSS CSS: Styling language CSS reference Properties Selectors At-rules Values See all\u2026 CSS guides Box model Animations Flexbox Colors See all\u2026 Layout cookbook Column layouts Centering an element Card component See all\u2026 JavaScript JS JavaScript: Scripting language JS reference Standard built-in objects Expressions & operators Statements & declarations Functions See all\u2026 JS guides Control flow & error handing Loops and iteration Working with objects Using classes See all\u2026 Web APIs Web APIs: Programming interfaces Web API reference File system API Fetch API Geolocation API HTML DOM API Push API Service worker API See all\u2026 Web API guides Using the Web animation API Using the Fetch API Working with the History API Using the Web speech API Using web workers All All web technology Technologies Accessibility HTTP URI Web extensions WebAssembly WebDriver See all\u2026 Topics Media Performance Privacy Security Progressive web apps Learn Learn web development Frontend developer course Getting started modules Core modules MDN Curriculum Learn HTML Structuring content with HTML module Learn CSS CSS styling basics module CSS layout module Learn JavaScript Dynamic scripting with JavaScript module Tools Discover our tools Playground HTTP Observatory Border-image generator Border-radius generator Box-shadow generator Color format converter Color mixer Shape generator About Get to know MDN better About MDN Advertise with us Community MDN on GitHub Blog Web URIs URIs Uniform Resource Identifiers (URI) are used to identify \"resources\" on the web.\nURIs are commonly used as targets of HTTP requests, in which case the URI represents a location for a resource, such as a document, a photo, binary data.\nThe most common type of URI is a Uniform Resource Locator ( URL ), which is known as the web address . URIs can be used to trigger behaviors other than fetching a resource, including opening an email client, sending text messages, or executing JavaScript, when used in other places such as the href of an HTML <a> link. In this article Reference Guides Specifications See also Reference The URI reference provides details about the components that make up a URI. Schemes The first part of the URI, before the : character, which indicates the protocol the browser must use to fetch the resource. Authority The section that comes after the scheme and before the path.\nIt may have up to three parts: user information, host , and port . Path The section after the authority.\nContains data, usually organized in hierarchical form, to identify a resource within the scope of the URI's scheme and authority. Fragment An optional part at the end of a URI starting with a # character.\nIt is used to identify a specific part of the resource, such as a section of a document or a position in a video. Guides The URI guides help you work with URIs on the web. Choosing between www and non-www URLs Guidance on when sites should use a www. prefix in URLs ( www.example.com vs example.com ). Specifications Specification Unknown specification > See also What is a URL? Help improve MDN Learn how to contribute This page was last modified on \u2068May 14, 2025\u2069 by MDN contributors . View this page on GitHub \u2022 Report a problem with this content URIs Guides Using 'www' in URLs Reference Scheme blob: data: javascript: resource: urn: Authority Path Query Fragment Text fragments Your blueprint for a better internet. MDN About Blog Mozilla careers Advertise with us MDN Plus Product help Contribute MDN Community Community resources Writing guidelines MDN Discord MDN on GitHub Developers Web technologies Learn web development Guides Tutorials Glossary Hacks blog Website Privacy Notice Telemetry Settings Legal Community Participation Guidelines Visit Mozilla Corporation\u2019s not-for-profit parent, the Mozilla Foundation . Portions of this content are \u00a91998\u2013\u20682025\u2069 by individual mozilla.org contributors. Content available under a Creative Commons license .",
+      "meta": {
+        "viewport": "width=device-width, initial-scale=1.0",
+        "description": "Uniform Resource Identifiers (URI) are used to identify \"resources\" on the web.\nURIs are commonly used as targets of HTTP requests, in which case the URI represents a location for a resource, such as a document, a photo, binary data.\nThe most common type of URI is a Uniform Resource Locator (URL), which is known as the web address.",
+        "og:url": "https://developer.mozilla.org/en-US/docs/Web/URI",
+        "og:title": "URIs | MDN",
+        "og:locale": "en_US",
+        "og:description": "Uniform Resource Identifiers (URI) are used to identify \"resources\" on the web.\nURIs are commonly used as targets of HTTP requests, in which case the URI represents a location for a resource, such as a document, a photo, binary data.\nThe most common type of URI is a Uniform Resource Locator (URL), which is known as the web address.",
+        "og:image": "https://developer.mozilla.org/mdn-social-share.d893525a4fb5fb1f67a2.png",
+        "og:image:type": "image/png",
+        "og:image:height": "1080",
+        "og:image:width": "1920",
+        "og:image:alt": "The MDN Web Docs logo, featuring a blue accent color, displayed on a solid black background.",
+        "og:site_name": "MDN Web Docs",
+        "twitter:card": "summary_large_image",
+        "twitter:creator": "MozDevNet",
+        "position": "2"
+      },
+      "keywords": [],
+      "language": "en",
+      "word_count": 665,
+      "description": "Uniform Resource Identifiers (URI) are used to identify \"resources\" on the web.\nURIs are commonly used as targets of HTTP requests, in which case the URI represents a location for a resource, such as a document, a photo, binary data.\nThe most common type of URI is a Uniform Resource Locator (URL), which is known as the web address.",
+      "clean_text": "URIs Uniform Resource Identifiers (URI) are used to identify \"resources\" on the web.\nURIs are commonly used as targets of HTTP requests, in which case the URI represents a location for a resource, such as a document, a photo, binary data.\nThe most common type of URI is a Uniform Resource Locator ( URL ), which is known as the web address . URIs can be used to trigger behaviors other than fetching a resource, including opening an email client, sending text messages, or executing JavaScript, when used in other places such as the href of an HTML <a> link. In this article Reference Guides Specifications See also Reference The URI reference provides details about the components that make up a URI. Schemes The first part of the URI, before the : character, which indicates the protocol the browser must use to fetch the resource. Authority The section that comes after the scheme and before the path.\nIt may have up to three parts: user information, host , and port . Path The section after the authority.\nContains data, usually organized in hierarchical form, to identify a resource within the scope of the URI's scheme and authority. Fragment An optional part at the end of a URI starting with a # character.\nIt is used to identify a specific part of the resource, such as a section of a document or a position in a video. Guides The URI guides help you work with URIs on the web. Choosing between www and non-www URLs Guidance on when sites should use a www. prefix in URLs ( www.example.com vs example.com ). Specifications Specification Unknown specification > See also What is a URL? Help improve MDN Learn how to contribute This page was last modified on \u2068May 14, 2025\u2069 by MDN contributors . View this page on GitHub \u2022 Report a problem with this content"
+    }
+  },
+  "metadata": {
+    "jsonld": [],
+    "microdata": [],
+    "opengraph": {},
+    "twitter": {
+      "card": "summary_large_image",
+      "creator": "MozDevNet"
+    }
+  },
+  "timestamp": "2025-12-04T13:38:20.876636"
+}

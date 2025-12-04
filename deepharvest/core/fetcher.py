@@ -12,10 +12,11 @@ logger = logging.getLogger(__name__)
 class AdvancedFetcher:
     """HTTP/2, HTTP/3 capable fetcher with connection pooling"""
     
-    def __init__(self, config: CrawlConfig):
+    def __init__(self, config: CrawlConfig, site_rule_matcher=None):
         self.config = config
         self.session: Optional[aiohttp.ClientSession] = None
         self.connector = None
+        self.site_rule_matcher = site_rule_matcher
     
     async def initialize(self):
         """Initialize HTTP session with HTTP/2 support"""
@@ -41,14 +42,21 @@ class AdvancedFetcher:
             
             timeout = aiohttp.ClientTimeout(total=30)
             
+            # Default headers
+            headers = {
+                'User-Agent': getattr(self.config, 'user_agent', 'DeepHarvest/1.0'),
+                'Accept': 'text/html,application/xhtml+xml,application/xml,*/*',
+                'Accept-Language': 'en-US,en;q=0.9',
+            }
+            
+            # Apply custom headers from config if available
+            if hasattr(self.config, 'headers') and self.config.headers:
+                headers.update(self.config.headers)
+            
             self.session = ClientSession(
                 connector=connector,
                 timeout=timeout,
-                headers={
-                    'User-Agent': getattr(self.config, 'user_agent', 'DeepHarvest/1.0'),
-                    'Accept': 'text/html,application/xhtml+xml,application/xml,*/*',
-                    'Accept-Language': 'en-US,en;q=0.9',
-                }
+                headers=headers
             )
         except Exception as e:
             logger.warning(f"Failed to initialize HTTP/2 session: {e}, falling back to HTTP/1.1")
@@ -65,9 +73,23 @@ class AdvancedFetcher:
         if not self.session:
             await self.initialize()
         
+        # Get custom headers for this URL from site rules
+        custom_headers = {}
+        if self.site_rule_matcher:
+            custom_ua = self.site_rule_matcher.get_custom_user_agent(url)
+            if custom_ua:
+                custom_headers['User-Agent'] = custom_ua
+            custom_site_headers = self.site_rule_matcher.get_custom_headers(url)
+            if custom_site_headers:
+                custom_headers.update(custom_site_headers)
+        
         async def _fetch():
             try:
-                async with self.session.get(url, allow_redirects=True) as response:
+                # Merge custom headers with session headers
+                request_headers = dict(self.session.headers)
+                request_headers.update(custom_headers)
+                
+                async with self.session.get(url, allow_redirects=True, headers=request_headers) as response:
                     # Create response-like object
                     class Response:
                         def __init__(self, resp):

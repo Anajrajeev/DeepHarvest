@@ -10,7 +10,7 @@ import logging
 import sys
 
 @click.group()
-@click.version_option(version='1.0.1')
+@click.version_option(version='1.0.2')
 def cli():
     """DeepHarvest - The World's Most Complete Web Crawler"""
     pass
@@ -31,7 +31,7 @@ def cli():
 def crawl(urls, config, depth, output, js, distributed, redis_url, workers, max_urls, max_size, max_pages_per_domain, time_limit):
     """Start crawling URLs"""
     
-    click.echo(f"Starting DeepHarvest v1.0.0")
+    click.echo(f"Starting DeepHarvest v1.0.2")
     click.echo(f"Crawling {len(urls)} seed URL(s)")
     
     # Load config
@@ -169,6 +169,90 @@ def list_plugins():
     click.echo("• speech_to_text.whisper - OpenAI Whisper STT")
     click.echo("• extractors.custom - Custom content extractor")
     click.echo("=" * 50)
+
+@cli.command()
+@click.argument('url')
+@click.option('--json', is_flag=True, help='Output as JSON')
+@click.option('--graph', is_flag=True, help='Export link graph')
+@click.option('--output', '-o', default='./osint_output', help='Output directory')
+@click.option('--screenshot', is_flag=True, help='Capture screenshots')
+def osint(url, json, graph, output, screenshot):
+    """OSINT collection and analysis"""
+    
+    async def run_osint():
+        from deepharvest.osint import OSINTCollector
+        from deepharvest.core.crawler import CrawlConfig
+        from pathlib import Path
+        import json as json_lib
+        
+        click.echo(f"Collecting OSINT data from {url}...")
+        
+        config = CrawlConfig(seed_urls=[url])
+        collector = OSINTCollector(config)
+        
+        try:
+            await collector.initialize()
+            result = await collector.collect(url, capture_screenshot=screenshot)
+            
+            # Create output directory
+            output_path = Path(output)
+            output_path.mkdir(parents=True, exist_ok=True)
+            
+            # Export JSON
+            if json or graph:
+                json_file = output_path / 'osint_results.json'
+                export_data = collector.export_json(str(json_file))
+                
+                if json:
+                    click.echo(f"\nOSINT Results:")
+                    click.echo(json_lib.dumps(export_data, indent=2))
+            
+            # Export graph
+            if graph:
+                graph_file = output_path / 'link_graph.graphml'
+                collector.export_graphml(str(graph_file))
+                click.echo(f"\nLink graph exported to {graph_file}")
+            
+            # Display summary
+            click.echo(f"\nOSINT Collection Summary:")
+            click.echo(f"  URL: {url}")
+            click.echo(f"  Emails found: {len(result.get('entities', {}).get('emails', []))}")
+            click.echo(f"  Phones found: {len(result.get('entities', {}).get('phones', []))}")
+            click.echo(f"  Usernames found: {len(result.get('entities', {}).get('usernames', []))}")
+            click.echo(f"  Domains found: {len(result.get('entities', {}).get('domains', []))}")
+            click.echo(f"  Technologies: {', '.join(result.get('tech_stack', {}).get('frameworks', []))}")
+            click.echo(f"  Output directory: {output_path}")
+            
+        finally:
+            await collector.close()
+    
+    asyncio.run(run_osint())
+
+@cli.command()
+@click.option('--host', default='0.0.0.0', help='Host to bind to')
+@click.option('--port', default=8000, type=int, help='Port to bind to')
+def serve(host, port):
+    """Run DeepHarvest as an API service"""
+    
+    async def run_server():
+        from deepharvest.api.server import serve as run_serve
+        await run_serve(host, port)
+    
+    click.echo(f"Starting DeepHarvest API server on http://{host}:{port}")
+    asyncio.run(run_server())
+
+@cli.command()
+@click.argument('pipeline_file', type=click.Path(exists=True))
+def run(pipeline_file):
+    """Run a pipeline from YAML file"""
+    
+    async def run_pipeline():
+        from deepharvest.pipeline.runner import run_pipeline as execute_pipeline
+        await execute_pipeline(pipeline_file)
+    
+    click.echo(f"Running pipeline: {pipeline_file}")
+    asyncio.run(run_pipeline())
+    click.echo("Pipeline completed!")
 
 if __name__ == '__main__':
     cli()

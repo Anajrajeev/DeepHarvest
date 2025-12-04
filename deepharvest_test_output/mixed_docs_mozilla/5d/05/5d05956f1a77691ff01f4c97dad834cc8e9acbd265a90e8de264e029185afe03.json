@@ -1,0 +1,41 @@
+{
+  "url": "https://developer.mozilla.org/en-US/docs/Web/XML",
+  "content": {
+    "text": {
+      "title": "XML: Extensible Markup Language | MDN",
+      "text": "XML: Extensible Markup Language | MDN Skip to main content Skip to search MDN HTML HTML: Markup language HTML reference Elements Global attributes Attributes See all\u2026 HTML guides Responsive images HTML cheatsheet Date & time formats See all\u2026 Markup languages SVG MathML XML CSS CSS: Styling language CSS reference Properties Selectors At-rules Values See all\u2026 CSS guides Box model Animations Flexbox Colors See all\u2026 Layout cookbook Column layouts Centering an element Card component See all\u2026 JavaScript JS JavaScript: Scripting language JS reference Standard built-in objects Expressions & operators Statements & declarations Functions See all\u2026 JS guides Control flow & error handing Loops and iteration Working with objects Using classes See all\u2026 Web APIs Web APIs: Programming interfaces Web API reference File system API Fetch API Geolocation API HTML DOM API Push API Service worker API See all\u2026 Web API guides Using the Web animation API Using the Fetch API Working with the History API Using the Web speech API Using web workers All All web technology Technologies Accessibility HTTP URI Web extensions WebAssembly WebDriver See all\u2026 Topics Media Performance Privacy Security Progressive web apps Learn Learn web development Frontend developer course Getting started modules Core modules MDN Curriculum Learn HTML Structuring content with HTML module Learn CSS CSS styling basics module CSS layout module Learn JavaScript Dynamic scripting with JavaScript module Tools Discover our tools Playground HTTP Observatory Border-image generator Border-radius generator Box-shadow generator Color format converter Color mixer Shape generator About Get to know MDN better About MDN Advertise with us Community MDN on GitHub Blog Web XML XML: Extensible Markup Language The Extensible Markup Language is a strict serialization of the Document Object Model . EXSLT EXSLT is a set of extensions to XSLT organized into modules that provide functions for performing transformations on an XML document.\nTo use an EXSLT function, you need to declare the namespace the function is in, and then use the appropriate prefix when calling the function. XML Guides This page lists guides for XML. XPath XPath stands for XML Path Language. It uses a non-XML syntax to provide a flexible way of addressing (pointing to) different parts of an XML document. It can also be used to test addressed nodes within a document to determine whether they match a pattern or not. XSLT: Extensible Stylesheet Language Transformations Extensible Stylesheet Language Transformations (XSLT) is an XML -based language used, in conjunction with specialized processing software, for the transformation of XML documents. Help improve MDN Learn how to contribute This page was last modified on \u2068Feb 5, 2025\u2069 by MDN contributors . View this page on GitHub \u2022 Report a problem with this content XML XML Guides XML introduction Parsing and serializing XML OpenSearch description format XPath Guides XPath snippets Comparison of CSS Selectors and XPath Introduction to using XPath in JavaScript Reference Functions boolean ceiling choose concat contains count current document element-available false floor format-number function-available generate-id id key lang last local-name name namespace-uri normalize-space not number position round starts-with string string-length substring substring-after substring-before sum system-property translate true unparsed-entity-url Axes XSLT Guides Transforming XML with XSLT PI Parameters Common XSLT Errors Reference Elements <xsl:apply-imports> <xsl:apply-templates> <xsl:attribute-set> <xsl:attribute> <xsl:call-template> <xsl:choose> <xsl:comment> <xsl:copy-of> <xsl:copy> <xsl:decimal-format> <xsl:element> <xsl:fallback> <xsl:for-each> <xsl:if> <xsl:import> <xsl:include> <xsl:key> <xsl:message> <xsl:namespace-alias> <xsl:number> <xsl:otherwise> <xsl:output> <xsl:param> <xsl:preserve-space> <xsl:processing-instruction> <xsl:sort> <xsl:strip-space> <xsl:stylesheet> <xsl:template> <xsl:text> <xsl:transform> <xsl:value-of> <xsl:variable> <xsl:when> <xsl:with-param> EXSLT Reference Common (exsl) exsl:node-set() exsl:object-type() Math (math) math:highest() math:lowest() math:max() math:min() Regular expressions (regexp) regexp:match() regexp:replace() regexp:test() Sets (set) set:difference() set:distinct() set:has-same-node() set:intersection() set:leading() set:trailing() Strings (str) str:concat() str:split() str:tokenize() Your blueprint for a better internet. MDN About Blog Mozilla careers Advertise with us MDN Plus Product help Contribute MDN Community Community resources Writing guidelines MDN Discord MDN on GitHub Developers Web technologies Learn web development Guides Tutorials Glossary Hacks blog Website Privacy Notice Telemetry Settings Legal Community Participation Guidelines Visit Mozilla Corporation\u2019s not-for-profit parent, the Mozilla Foundation . Portions of this content are \u00a91998\u2013\u20682025\u2069 by individual mozilla.org contributors. Content available under a Creative Commons license .",
+      "meta": {
+        "viewport": "width=device-width, initial-scale=1.0",
+        "description": "The Extensible Markup Language is a strict serialization of the Document Object Model.",
+        "og:url": "https://developer.mozilla.org/en-US/docs/Web/XML",
+        "og:title": "XML: Extensible Markup Language | MDN",
+        "og:locale": "en_US",
+        "og:description": "The Extensible Markup Language is a strict serialization of the Document Object Model.",
+        "og:image": "https://developer.mozilla.org/mdn-social-share.d893525a4fb5fb1f67a2.png",
+        "og:image:type": "image/png",
+        "og:image:height": "1080",
+        "og:image:width": "1920",
+        "og:image:alt": "The MDN Web Docs logo, featuring a blue accent color, displayed on a solid black background.",
+        "og:site_name": "MDN Web Docs",
+        "twitter:card": "summary_large_image",
+        "twitter:creator": "MozDevNet",
+        "position": "2"
+      },
+      "keywords": [],
+      "language": "en",
+      "word_count": 664,
+      "description": "The Extensible Markup Language is a strict serialization of the Document Object Model.",
+      "clean_text": "XML: Extensible Markup Language The Extensible Markup Language is a strict serialization of the Document Object Model . EXSLT EXSLT is a set of extensions to XSLT organized into modules that provide functions for performing transformations on an XML document.\nTo use an EXSLT function, you need to declare the namespace the function is in, and then use the appropriate prefix when calling the function. XML Guides This page lists guides for XML. XPath XPath stands for XML Path Language. It uses a non-XML syntax to provide a flexible way of addressing (pointing to) different parts of an XML document. It can also be used to test addressed nodes within a document to determine whether they match a pattern or not. XSLT: Extensible Stylesheet Language Transformations Extensible Stylesheet Language Transformations (XSLT) is an XML -based language used, in conjunction with specialized processing software, for the transformation of XML documents. Help improve MDN Learn how to contribute This page was last modified on \u2068Feb 5, 2025\u2069 by MDN contributors . View this page on GitHub \u2022 Report a problem with this content"
+    }
+  },
+  "metadata": {
+    "jsonld": [],
+    "microdata": [],
+    "opengraph": {},
+    "twitter": {
+      "card": "summary_large_image",
+      "creator": "MozDevNet"
+    }
+  },
+  "timestamp": "2025-12-04T13:37:51.779671"
+}

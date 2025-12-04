@@ -26,6 +26,11 @@
 - **Site Graph Analysis**: PageRank, clustering, GraphML export
 - **Observability**: Prometheus metrics, Grafana dashboards
 - **Extensible**: Plugin system for custom extractors
+- **OSINT Mode**: Entity extraction, technology detection, link graph analysis
+- **Browser Automation**: High-level Playwright integration with screenshot capture
+- **Pipeline Execution**: YAML-based pipeline runner for complex workflows
+- **API Server**: REST API for programmatic access
+- **Multiple Exporters**: JSONL, Parquet, SQLite, VectorDB (FAISS/Chroma) support
 
 ## Quick Start
 
@@ -93,6 +98,33 @@ deepharvest crawl https://example.com \
 deepharvest crawl --config config.yaml
 ```
 
+#### OSINT Mode
+
+```bash
+# Basic OSINT collection
+deepharvest osint https://example.com
+
+# With JSON output and link graph
+deepharvest osint https://example.com --json --graph
+
+# With screenshots
+deepharvest osint https://example.com --screenshot
+```
+
+#### API Server
+
+```bash
+# Start API server
+deepharvest serve --host 0.0.0.0 --port 8000
+```
+
+#### Pipeline Execution
+
+```bash
+# Run a pipeline from YAML file
+deepharvest run pipeline.yaml
+```
+
 ### Python API
 
 ```python
@@ -138,7 +170,15 @@ docker-compose up
 
 ## Documentation
 
-Documentation is available in the repository. Please refer to the code comments and examples for usage.
+Comprehensive documentation is available in the [`docs/`](docs/) directory:
+
+- [API Reference](docs/api.md) - Complete API documentation
+- [Plugin Development Guide](docs/plugins.md) - Create and use plugins
+- [OSINT Usage](docs/osint.md) - OSINT mode examples
+- [Browser Automation](docs/browser.md) - Browser automation guide
+- [Benchmarks](docs/benchmarks.md) - Performance benchmarks
+- [Troubleshooting](docs/troubleshooting.md) - Common issues and solutions
+- [Architecture](docs/architecture.md) - System architecture overview
 
 ## Architecture
 
@@ -148,7 +188,7 @@ Documentation is available in the repository. Please refer to the code comments 
 ├─────────────────────────────────────────────────────────┤
 │  ┌─────────────┐  ┌──────────────┐  ┌───────────────┐  │
 │  │  Frontier   │  │   Fetcher    │  │  JS Renderer  │  │
-│  │  (BFS/DFS)  │  │  (HTTP/2/3)  │  │  (Playwright) │  │
+│  │  (BFS/DFS)  │  │  (HTTP/2)    │  │  (Playwright) │  │
 │  └─────────────┘  └──────────────┘  └───────────────┘  │
 │  ┌─────────────┐  ┌──────────────┐  ┌───────────────┐  │
 │  │ Extractors  │  │  Trap Det.   │  │  URL Dedup    │  │
@@ -173,7 +213,7 @@ DeepHarvest operates as a distributed web crawling system that systematically di
 
 2. **URL Management (Frontier)**: A priority queue manages URLs to be crawled. Supports BFS, DFS, and priority-based strategies. In distributed mode, Redis coordinates URL distribution across workers.
 
-3. **Content Fetching**: The fetcher downloads web pages with retry logic, timeout handling, and rate limiting. Supports HTTP/2 and HTTP/3 protocols.
+3. **Content Fetching**: The fetcher downloads web pages with retry logic, timeout handling, and rate limiting. Attempts HTTP/2 support with fallback to HTTP/1.1.
 
 4. **HTML Parsing**: Multi-strategy parser with fallback chain (lxml → html5lib → html.parser) ensures robust parsing of malformed HTML.
 

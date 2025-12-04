@@ -315,6 +315,7 @@ class TestFeatureCompleteness:
     
     def test_41_tests(self):
         """Test 41: Tests covering core functionality"""
+        from pathlib import Path
         assert Path("tests").exists()
         print("Feature 41: Tests - PASSED")
 

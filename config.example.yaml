@@ -77,3 +77,31 @@ headers:
   Accept-Language: "en-US,en;q=0.9"
   Cache-Control: "no-cache"
 
+# Site-specific rules (pattern-based, no hardcoding)
+# Rules are matched in order, first match wins
+# Higher priority rules are checked first
+site_rules:
+  # Example: Twitter/X requires browser rendering due to large headers
+  - pattern: ".*twitter\\.com|.*x\\.com"
+    use_browser_directly: true
+    priority: 10
+    reason: "Large headers require browser rendering"
+  
+  # Example: Wikipedia requires proper user agent
+  - pattern: ".*wikipedia\\.org"
+    require_js: true
+    custom_user_agent: "DeepHarvest/1.0 (+https://github.com/deepharvest/deepharvest; Wikipedia-compatible)"
+    priority: 10
+    reason: "Wikipedia requires proper user agent and JS rendering"
+  
+  # Example: SPA frameworks typically need JS
+  - pattern: ".*\\.(spa|app)$|.*/spa/|.*/app/"
+    require_js: true
+    priority: 5
+    reason: "Detected SPA framework pattern"
+  
+  # Default rule (always last, lowest priority)
+  - pattern: ".*"
+    priority: 0
+    reason: "Default rule for all sites"
+

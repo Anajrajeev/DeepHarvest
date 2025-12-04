@@ -23,8 +23,13 @@ class TestTrapDetector:
         """Test session ID trap detection"""
         detector = TrapDetector()
         
-        url = "https://example.com/page?sessionid=abc123def456ghi789"
+        # Use a session ID longer than 20 characters (the threshold)
+        url = "https://example.com/page?sessionid=abc123def456ghi789jkl012mno345pqr678"
         assert detector._is_session_id_trap(url)
+        
+        # Short session ID should not be detected
+        url = "https://example.com/page?sessionid=abc123"
+        assert not detector._is_session_id_trap(url)
         
         url = "https://example.com/page?id=123"
         assert not detector._is_session_id_trap(url)

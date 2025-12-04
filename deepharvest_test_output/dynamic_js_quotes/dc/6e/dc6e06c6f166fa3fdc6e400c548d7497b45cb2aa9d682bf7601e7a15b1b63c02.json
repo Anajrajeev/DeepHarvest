@@ -1,0 +1,22 @@
+{
+  "url": "https://quotes.toscrape.com/js/page/2",
+  "content": {
+    "text": {
+      "title": "Quotes to Scrape",
+      "text": "Quotes to Scrape Quotes to Scrape Login \u2190 Previous Next \u2192 Quotes by: GoodReads.com Made with \u201a\u00f9\u00a7 by Zyte",
+      "meta": {},
+      "keywords": [],
+      "language": "en",
+      "word_count": 19,
+      "description": "",
+      "clean_text": "Quotes to Scrape Quotes to Scrape Login"
+    }
+  },
+  "metadata": {
+    "jsonld": [],
+    "microdata": [],
+    "opengraph": {},
+    "twitter": {}
+  },
+  "timestamp": "2025-12-04T13:36:47.152306"
+}

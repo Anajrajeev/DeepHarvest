@@ -9,7 +9,7 @@ long_description = (Path(__file__).parent / "README.md").read_text(encoding="utf
 
 setup(
     name="deepharvest",
-    version="1.0.1",
+    version="1.0.2",
     author="DeepHarvest Contributors",
     description="The world's most complete, resilient, multilingual web crawler",
     long_description=long_description,

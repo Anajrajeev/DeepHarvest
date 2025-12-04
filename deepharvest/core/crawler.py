@@ -11,6 +11,7 @@ from urllib.parse import urlparse, urljoin
 import aiohttp
 from playwright.async_api import async_playwright
 from datetime import datetime
+from .site_rules import SiteRuleMatcher, HeuristicSiteDetector
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +74,9 @@ class CrawlConfig:
     # Monitoring
     enable_metrics: bool = True
     metrics_port: int = 9090
+    
+    # Site-specific rules (pattern-based, no hardcoding)
+    site_rules: List[Dict[str, Any]] = field(default_factory=list)
 
 class DeepHarvest:
     """
@@ -83,7 +87,7 @@ class DeepHarvest:
         self.config = config
         self.frontier = None
         self.fetcher = None
-        self.js_engine = None
+        self.browser_scraper = None
         self.extractors = {}
         self.ml_models = {}
         self.visited: Set[str] = set()
@@ -92,6 +96,10 @@ class DeepHarvest:
         self.crawl_start_time: Optional[float] = None  # Track crawl start time
         self._stop_flag = asyncio.Event()  # Signal to stop all workers
         self._stats_lock = asyncio.Lock()  # Lock for thread-safe stats updates
+        
+        # Initialize site rule matcher
+        self.site_rule_matcher = SiteRuleMatcher(config.site_rules)
+        self.heuristic_detector = HeuristicSiteDetector()
         
     async def initialize(self):
         """Initialize all subsystems"""
@@ -111,11 +119,13 @@ class DeepHarvest:
         self.fetcher = AdvancedFetcher(self.config)
         await self.fetcher.initialize()
         
-        # Initialize JS engine if enabled
+        # Initialize browser scraper if enabled
         if self.config.enable_js:
-            from ..engines.js_renderer import JSRenderer
-            self.js_engine = JSRenderer(self.config)
-            await self.js_engine.initialize()
+            from ..browser import BrowserScraper
+            self.browser_scraper = BrowserScraper(self.config)
+            await self.browser_scraper.initialize()
+        else:
+            self.browser_scraper = None
         
         # Initialize extractors
         await self._initialize_extractors()
@@ -147,7 +157,7 @@ class DeepHarvest:
     
     async def _initialize_ml_models(self):
         """Initialize ML models for intelligent extraction"""
-        from ..ml.classifier import PageClassifier
+        from ..ml.page_classifier import PageClassifier
         from ..ml.soft404 import Soft404Detector
         from ..ml.quality import QualityScorer
         from ..ml.dedup import NearDuplicateDetector
@@ -294,22 +304,23 @@ class DeepHarvest:
                 logger.info(f"Max pages per domain limit reached for {domain} ({self.config.max_pages_per_domain}), skipping {url}")
                 return
         
-        # For sites with large headers (Twitter/X), use Playwright directly
-        use_js_directly = any(domain in url.lower() for domain in ['twitter.com', 'x.com'])
+        # Check site-specific rules for browser direct usage
+        use_js_directly = self.site_rule_matcher.should_use_browser_directly(url)
         
         # Fetch content
-        if use_js_directly and self.config.enable_js and self.js_engine:
-            # Use Playwright directly for Twitter to avoid header size issues
+        if use_js_directly and self.config.enable_js and self.browser_scraper:
+            # Use browser scraper for sites requiring direct browser access
             try:
-                from ..core.fetcher import AdvancedFetcher
-                # Create a minimal response object for Playwright to populate
-                class MinimalResponse:
-                    def __init__(self):
-                        self.status_code = 200
-                        self.headers = {}
-                        self.url = url
-                        self._content = None
-                        self._text = None
+                browser_result = await self.browser_scraper.fetch(url, use_js=True)
+                
+                # Convert to response-like object
+                class BrowserResponse:
+                    def __init__(self, browser_result):
+                        self.status_code = browser_result.status_code
+                        self.headers = browser_result.headers
+                        self.url = browser_result.url
+                        self._content = browser_result._content
+                        self._text = browser_result._text
                     
                     @property
                     def content(self):
@@ -319,14 +330,16 @@ class DeepHarvest:
                     def text(self):
                         return self._text
                 
-                response = MinimalResponse()
-                response = await self.js_engine.render(url, response)
+                response = BrowserResponse(browser_result)
                 if not response or not hasattr(response, '_text') or not response._text:
-                    logger.warning(f"Failed to render {url} with Playwright")
+                    logger.warning(f"Failed to render {url} with browser")
                     return
             except Exception as e:
-                logger.error(f"Error using Playwright for {url}: {e}")
-                return
+                logger.error(f"Error using browser for {url}: {e}")
+                # Fallback to HTTP
+                response = await self.fetcher.fetch(url)
+                if response is None:
+                    return
         else:
             response = await self.fetcher.fetch(url)
             if response is None:
@@ -342,20 +355,50 @@ class DeepHarvest:
         # Mark as visited
         await self._mark_visited(url)
         
-        # Render JavaScript if needed (auto-detect blank HTML)
-        # Also use JS for sites known to have large headers (Twitter, etc.)
-        use_js_for_large_headers = any(domain in url.lower() for domain in ['twitter.com', 'x.com'])
+        # Classify page type using ML classifier
+        if self.ml_models.get('classifier'):
+            try:
+                page_type_scores = await self.ml_models['classifier'].classify(response.text, url)
+                page_type = max(page_type_scores.items(), key=lambda x: x[1])[0]
+                logger.debug(f"Page type for {url}: {page_type} (confidence: {page_type_scores[page_type]:.2f})")
+            except Exception as e:
+                logger.warning(f"Page classification failed for {url}: {e}")
+        # Check site-specific rules for JS requirement
+        require_js_by_rule = self.site_rule_matcher.should_require_js(url)
         
-        if self.config.enable_js or use_js_for_large_headers:
-            needs_js = self._needs_js_rendering(response) or use_js_for_large_headers
+        if self.config.enable_js or require_js_by_rule:
+            # Check if JS is needed via rules, heuristics, or existing detection
+            needs_js = (
+                require_js_by_rule or
+                self._needs_js_rendering(response) or
+                self.heuristic_detector.detect_js_requirement(response)
+            )
             # Also check if HTML is mostly empty (likely needs JS)
             if not needs_js and hasattr(response, 'text'):
                 text_len = len(response.text.strip())
                 if text_len < 500:  # Very short HTML, likely needs JS
                     needs_js = True
             
-            if needs_js and self.js_engine:
-                response = await self.js_engine.render(url, response)
+            if needs_js and self.browser_scraper:
+                browser_result = await self.browser_scraper.fetch(url, use_js=True)
+                # Convert browser result to response-like object
+                class BrowserResponse:
+                    def __init__(self, browser_result):
+                        self.status_code = browser_result.status_code
+                        self.headers = browser_result.headers
+                        self.url = browser_result.url
+                        self._content = browser_result._content
+                        self._text = browser_result._text
+                    
+                    @property
+                    def content(self):
+                        return self._content
+                    
+                    @property
+                    def text(self):
+                        return self._text
+                
+                response = BrowserResponse(browser_result)
         
         # Detect traps
         if self.config.enable_trap_detection:
@@ -454,6 +497,11 @@ class DeepHarvest:
         
         extractor = AdvancedLinkExtractor()
         urls = await extractor.extract(response, base_url)
+        
+        # Check if link extraction might have failed (heuristic detection)
+        if self.heuristic_detector.detect_link_extraction_issue(response, len(urls)):
+            logger.warning(f"Link extraction may have failed for {base_url}. Found {len(urls)} links but HTML suggests more.")
+            # Could trigger JS rendering retry here if needed
         
         # Also detect API endpoints if HTML
         if hasattr(response, 'text') and response.text:
@@ -614,8 +662,8 @@ class DeepHarvest:
         """Graceful shutdown"""
         logger.info("Shutting down DeepHarvest...")
         
-        if self.js_engine:
-            await self.js_engine.close()
+        if self.browser_scraper:
+            await self.browser_scraper.close()
         
         if self.fetcher:
             await self.fetcher.close()

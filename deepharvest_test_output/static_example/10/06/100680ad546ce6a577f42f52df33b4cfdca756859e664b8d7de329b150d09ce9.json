@@ -1,0 +1,24 @@
+{
+  "url": "https://example.com",
+  "content": {
+    "text": {
+      "title": "Example Domain",
+      "text": "Example Domain Example Domain This domain is for use in documentation examples without needing permission. Avoid use in operations. Learn more",
+      "meta": {
+        "viewport": "width=device-width, initial-scale=1"
+      },
+      "keywords": [],
+      "language": "en",
+      "word_count": 21,
+      "description": "",
+      "clean_text": "Example Domain Example Domain This domain is for use in documentation examples without needing permission. Avoid use in operations. Learn more"
+    }
+  },
+  "metadata": {
+    "jsonld": [],
+    "microdata": [],
+    "opengraph": {},
+    "twitter": {}
+  },
+  "timestamp": "2025-12-04T13:35:38.257098"
+}
