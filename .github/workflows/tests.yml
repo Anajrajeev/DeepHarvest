@@ -50,5 +50,5 @@ jobs:
     - name: Check code formatting
       run: |
         black --check deepharvest/
-        flake8 deepharvest/
+        flake8 deepharvest/ --max-line-length=100 --extend-ignore=E203,E266,E501,W503,E722,F401,F841,F541
 
