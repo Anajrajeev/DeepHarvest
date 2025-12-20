@@ -1,6 +1,0 @@
-include README.md
-include LICENSE
-include pyproject.toml
-recursive-include deepharvest *.py
-recursive-include tests *.py
-

@@ -82,6 +82,9 @@ class CrawlConfig:
     # Site-specific rules (pattern-based, no hardcoding)
     site_rules: List[Dict[str, Any]] = field(default_factory=list)
 
+    # Exporters
+    exporters: List[str] = field(default_factory=list)
+
 
 class DeepHarvest:
     """
@@ -95,6 +98,7 @@ class DeepHarvest:
         self.browser_scraper = None
         self.extractors = {}
         self.ml_models = {}
+        self.exporters = {}  # Dictionary of initialized exporters
         self.visited: Set[str] = set()
         self.stats = CrawlStats()
         self.domain_page_counts: Dict[str, int] = {}  # Track pages per domain
@@ -143,6 +147,9 @@ class DeepHarvest:
         if self.config.enable_ml_extraction:
             await self._initialize_ml_models()
 
+        # Initialize exporters
+        await self._initialize_exporters()
+
         # Load checkpoint if resuming
         await self._load_checkpoint()
 
@@ -179,6 +186,17 @@ class DeepHarvest:
         # Load pre-trained models
         for model in self.ml_models.values():
             await model.load()
+
+    async def _initialize_exporters(self):
+        """Initialize configured exporters"""
+        from ..exporters import InMemoryTextExporter
+
+        for exporter_name in self.config.exporters:
+            if exporter_name == "memory":
+                self.exporters["memory"] = InMemoryTextExporter()
+                logger.info("Initialized memory exporter")
+            else:
+                logger.warning(f"Unknown exporter: {exporter_name}")
 
     async def crawl(self):
         """Main crawl loop"""
@@ -629,6 +647,35 @@ class DeepHarvest:
         storage = create_storage_backend(self.config)
         await storage.store(url, content, structured_data, response)
 
+        # Export to configured exporters
+        await self._export_result(url, content, structured_data, response)
+
+    async def _export_result(self, url: str, content: Dict, structured_data: Dict, response):
+        """Export result to configured exporters"""
+        # Create a record for exporters
+        record = {
+            "url": url,
+            "content": content,
+            "structured_data": structured_data,
+            "status_code": getattr(response, "status", None),
+            "headers": dict(getattr(response, "headers", {})),
+        }
+
+        # Add text if available
+        if "text" in content and isinstance(content["text"], dict):
+            record["text"] = content["text"].get("content", "")
+        elif "text" in content:
+            record["text"] = content["text"]
+
+        # Export to each configured exporter
+        for exporter_name, exporter in self.exporters.items():
+            try:
+                if hasattr(exporter, 'export'):
+                    # Call export with a list containing the single record
+                    exporter.export([record])
+            except Exception as e:
+                logger.error(f"Error exporting to {exporter_name}: {e}")
+
     async def _save_checkpoint(self):
         """Save crawl state for resumability"""
         import json
@@ -700,6 +747,15 @@ class DeepHarvest:
 
         if self.fetcher:
             await self.fetcher.close()
+
+        # Close exporters
+        for exporter_name, exporter in self.exporters.items():
+            try:
+                if hasattr(exporter, 'close'):
+                    exporter.close()
+                    logger.info(f"Closed exporter: {exporter_name}")
+            except Exception as e:
+                logger.error(f"Error closing exporter {exporter_name}: {e}")
 
         logger.info("Shutdown complete")
 
