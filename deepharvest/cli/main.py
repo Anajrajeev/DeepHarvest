@@ -48,17 +48,17 @@ def crawl(
     time_limit,
 ):
     """Start crawling URLs"""
-    
+
     click.echo(f"Starting DeepHarvest v1.0.4")
     click.echo(f"Crawling {len(urls)} seed URL(s)")
-    
+
     # Load config
     if config:
         with open(config) as f:
             cfg = yaml.safe_load(f)
     else:
         cfg = {}
-    
+
     # Override with CLI options
     if depth:
         cfg["max_depth"] = depth
@@ -74,25 +74,25 @@ def crawl(
         cfg["max_pages_per_domain"] = max_pages_per_domain
     if time_limit:
         cfg["time_limit_seconds"] = time_limit
-    
+
     if distributed and not redis_url:
         click.echo("Error: --redis-url required for distributed mode", err=True)
         return
-    
+
     # Configure logging
     logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
 
     # Run crawler
     async def run():
         from deepharvest.core.crawler import DeepHarvest, CrawlConfig, CrawlStrategy
-        
+
         crawl_config = CrawlConfig(seed_urls=list(urls), **cfg)
-        
+
         if distributed:
             crawl_config.redis_url = redis_url
-        
+
         crawler = DeepHarvest(crawl_config)
-        
+
         try:
             click.echo("Initializing crawler...")
             await crawler.initialize()
@@ -110,46 +110,114 @@ def crawl(
             click.echo(f"  Output Directory: {crawl_config.output_dir}")
         finally:
             await crawler.shutdown()
-    
+
     asyncio.run(run())
-    
+
     click.echo("Crawl completed!")
 
 
 @cli.command()
 @click.option("--state-file", default="crawl_state.json", help="State file path")
-def resume(state_file):
-    """Resume a previous crawl"""
-    
+@click.option(
+    "--config",
+    "-c",
+    type=click.Path(exists=True),
+    help="Config file path (optional, for crawl settings)",
+)
+@click.option("--output", "-o", help="Output directory (optional, overrides config)")
+def resume(state_file, config, output):
+    """Resume a previous crawl from checkpoint"""
+
     if not Path(state_file).exists():
         click.echo(f"State file not found: {state_file}", err=True)
         return
-    
+
     click.echo(f"Resuming crawl from {state_file}")
-    
-    # Load state and resume
-    with open(state_file) as f:
-        state = json.load(f)
-    
-    click.echo(f"Processed: {state.get('processed', 0)} URLs")
-    click.echo("Resuming...")
-    
-    # Implementation would load state and continue
+
+    # Load checkpoint state to get basic info
+    try:
+        with open(state_file) as f:
+            checkpoint_state = json.load(f)
+
+        processed = checkpoint_state.get("processed", 0)
+        visited_count = len(checkpoint_state.get("visited", []))
+        frontier_count = len(checkpoint_state.get("frontier", []))
+
+        click.echo(f"  Processed: {processed} URLs")
+        click.echo(f"  Visited: {visited_count} URLs")
+        if frontier_count > 0:
+            click.echo(f"  Pending URLs: {frontier_count}")
+        click.echo("")
+    except Exception as e:
+        click.echo(f"Error reading checkpoint: {e}", err=True)
+        return
+
+    # Load config if provided, otherwise use defaults
+    cfg = {}
+    if config:
+        with open(config) as f:
+            cfg = yaml.safe_load(f)
+
+    # Override state_file and output_dir to match resume request
+    cfg["state_file"] = state_file
+    if output:
+        cfg["output_dir"] = output
+
+    # Configure logging
+    logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
+
+    # Run crawler (it will automatically load checkpoint during initialize)
+    async def run():
+        from deepharvest.core.crawler import DeepHarvest, CrawlConfig
+
+        # Create config - seed URLs are not critical for resume (frontier has pending URLs)
+        # But we need at least one seed URL for config validation
+        seed_urls = cfg.get("seed_urls", ["https://example.com"])  # Placeholder if not in config
+
+        crawl_config = CrawlConfig(seed_urls=seed_urls, **cfg)
+
+        crawler = DeepHarvest(crawl_config)
+
+        try:
+            click.echo("Initializing crawler...")
+            await crawler.initialize()
+
+            if frontier_count > 0:
+                click.echo(f"Restored {frontier_count} pending URLs from checkpoint")
+
+            click.echo("Resuming crawl...")
+            await crawler.crawl()
+
+            # Show final stats
+            stats = crawler.stats
+            click.echo(f"\nCrawl Statistics:")
+            click.echo(f"  URLs Processed: {stats.processed}")
+            click.echo(f"  Successful: {stats.success}")
+            click.echo(f"  Errors: {stats.errors}")
+            if stats.bytes_downloaded > 0:
+                click.echo(f"  Bytes Downloaded: {stats.bytes_downloaded:,}")
+            click.echo(f"  Output Directory: {crawl_config.output_dir}")
+        finally:
+            await crawler.shutdown()
+
+    asyncio.run(run())
+
+    click.echo("Resume completed!")
 
 
 @cli.command()
 @click.option("--redis-url", required=True, help="Redis URL")
 def status(redis_url):
     """Show crawl status"""
-    
+
     async def get_status():
         from deepharvest.distributed.redis_frontier import RedisFrontier
-        
+
         frontier = RedisFrontier(redis_url)
         await frontier.connect()
-        
+
         stats = await frontier.get_stats()
-        
+
         click.echo("\nCrawl Status")
         click.echo("=" * 50)
         click.echo(f"Queued:      {stats['queued']:,}")
@@ -157,9 +225,9 @@ def status(redis_url):
         click.echo(f"In Progress: {stats['in_progress']:,}")
         click.echo(f"Visited:     {stats['visited']:,}")
         click.echo("=" * 50)
-        
+
         await frontier.close()
-    
+
     asyncio.run(get_status())
 
 
@@ -168,9 +236,9 @@ def status(redis_url):
 @click.option("--format", type=click.Choice(["graphml", "json", "csv"]), default="graphml")
 def export_graph(output_dir, format):
     """Export site graph"""
-    
+
     click.echo(f"Exporting site graph to {format}")
-    
+
     # Implementation would generate and export graph
     click.echo("Graph exported successfully!")
 
@@ -178,7 +246,7 @@ def export_graph(output_dir, format):
 @cli.command()
 def list_plugins():
     """List available plugins"""
-    
+
     click.echo("\nAvailable Plugins")
     click.echo("=" * 50)
     click.echo("• speech_to_text.whisper - OpenAI Whisper STT")
