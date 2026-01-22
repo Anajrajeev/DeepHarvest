@@ -15,7 +15,7 @@
 - **JavaScript Support**: Full SPA support with Playwright
 - **Multilingual**: Handles all languages, encodings, and scripts
 - **Distributed**: Redis-based distributed crawling with multiple workers
-- **Resumable**: Checkpoint and resume interrupted crawls
+- **Resumable**: Full checkpoint and resume support for interrupted crawls (local mode)
 - **Intelligent**: ML-based trap detection, content extraction, deduplication
 
 ### Advanced Features
@@ -97,6 +97,21 @@ deepharvest crawl https://example.com \
 # Use a YAML config file
 deepharvest crawl --config config.yaml
 ```
+
+#### Resuming Interrupted Crawls
+
+```bash
+# Resume from a checkpoint file
+deepharvest resume --state-file crawl_state.json
+
+# Resume with custom config
+deepharvest resume --state-file crawl_state.json --config config.yaml
+
+# Resume with different output directory
+deepharvest resume --state-file crawl_state.json --output ./new_output
+```
+
+**Note**: Resume functionality works in local mode only. In distributed mode, Redis persistence handles state management.
 
 #### OSINT Mode
 
@@ -243,6 +258,13 @@ DeepHarvest operates as a distributed web crawling system that systematically di
    - Query parameter explosions
 
 10. **Storage**: Extracted content is stored with metadata. Supports filesystem, S3, and PostgreSQL backends.
+
+11. **Resume Support**: DeepHarvest can resume interrupted crawls by:
+    - Saving checkpoint state periodically (configurable interval)
+    - Restoring visited URLs to prevent duplicates
+    - Restoring pending frontier queue to continue from where it left off
+    - Automatically skipping seed URLs if resuming from checkpoint
+    - Note: Resume is supported in local mode only; distributed mode relies on Redis persistence
 
 ### Distributed Architecture
 

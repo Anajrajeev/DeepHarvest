@@ -105,6 +105,7 @@ class DeepHarvest:
         self.crawl_start_time: Optional[float] = None  # Track crawl start time
         self._stop_flag = asyncio.Event()  # Signal to stop all workers
         self._stats_lock = asyncio.Lock()  # Lock for thread-safe stats updates
+        self._frontier_restored: bool = False  # Track if frontier was restored from checkpoint
 
         # Initialize site rule matcher
         self.site_rule_matcher = SiteRuleMatcher(config.site_rules)
@@ -124,6 +125,9 @@ class DeepHarvest:
             from .frontier import LocalFrontier
 
             self.frontier = LocalFrontier(self.config.strategy)
+
+        # Load checkpoint if resuming (must be after frontier initialization)
+        await self._load_checkpoint()
 
         # Initialize fetcher
         from .fetcher import AdvancedFetcher
@@ -149,9 +153,6 @@ class DeepHarvest:
 
         # Initialize exporters
         await self._initialize_exporters()
-
-        # Load checkpoint if resuming
-        await self._load_checkpoint()
 
         logger.info("DeepHarvest initialized successfully")
 
@@ -204,10 +205,14 @@ class DeepHarvest:
         self.crawl_start_time = time.time()
         self._stop_flag.clear()  # Reset stop flag
 
-        # Add seed URLs to frontier
-        for url in self.config.seed_urls:
-            if not self._stop_flag.is_set():
-                await self.frontier.add(url, depth=0, priority=1.0)
+        # Add seed URLs to frontier only if not resuming from checkpoint
+        # If frontier was restored, it already contains pending URLs
+        if not self._frontier_restored:
+            for url in self.config.seed_urls:
+                if not self._stop_flag.is_set():
+                    await self.frontier.add(url, depth=0, priority=1.0)
+        else:
+            logger.info("Skipping seed URLs - resuming from checkpoint with existing frontier")
 
         # Create worker tasks
         workers = [
@@ -301,6 +306,12 @@ class DeepHarvest:
                 # Allow graceful shutdown on Ctrl+C
                 logger.info("Crawl interrupted by user")
                 self._stop_flag.set()
+                # Save checkpoint on interrupt
+                try:
+                    await self._save_checkpoint()
+                    logger.info("Checkpoint saved after interruption")
+                except Exception as e:
+                    logger.warning(f"Failed to save checkpoint after interruption: {e}")
                 break
             except Exception as e:
                 logger.error(f"Error processing {url}: {e}", exc_info=True)
@@ -670,7 +681,7 @@ class DeepHarvest:
         # Export to each configured exporter
         for exporter_name, exporter in self.exporters.items():
             try:
-                if hasattr(exporter, 'export'):
+                if hasattr(exporter, "export"):
                     # Call export with a list containing the single record
                     exporter.export([record])
             except Exception as e:
@@ -680,6 +691,7 @@ class DeepHarvest:
         """Save crawl state for resumability"""
         import json
         from pathlib import Path
+        from .frontier import LocalFrontier
 
         state = {
             "processed": self.stats.processed,
@@ -688,6 +700,16 @@ class DeepHarvest:
             "visited": list(self.visited) if not self.config.distributed else [],
             "timestamp": datetime.utcnow().isoformat(),
         }
+
+        # Save frontier state (local mode only)
+        if not self.config.distributed and isinstance(self.frontier, LocalFrontier):
+            try:
+                frontier_pending = await self.frontier.get_pending_snapshot()
+                if frontier_pending:
+                    state["frontier"] = frontier_pending
+                    logger.debug(f"Saving {len(frontier_pending)} pending URLs to checkpoint")
+            except Exception as e:
+                logger.warning(f"Failed to save frontier state: {e}")
 
         state_file = Path(self.config.state_file)
         state_file.parent.mkdir(parents=True, exist_ok=True)
@@ -701,6 +723,7 @@ class DeepHarvest:
         """Load previous crawl state"""
         import json
         from pathlib import Path
+        from .frontier import LocalFrontier
 
         state_file = Path(self.config.state_file)
 
@@ -717,6 +740,14 @@ class DeepHarvest:
 
             if not self.config.distributed:
                 self.visited = set(state.get("visited", []))
+
+            # Restore frontier state (local mode only, after frontier is initialized)
+            if not self.config.distributed and isinstance(self.frontier, LocalFrontier):
+                frontier_pending = state.get("frontier", [])
+                if frontier_pending:
+                    await self.frontier.restore_pending(frontier_pending)
+                    self._frontier_restored = True
+                    logger.info(f"Restored {len(frontier_pending)} pending URLs from checkpoint")
 
             logger.info(f"Checkpoint loaded: {self.stats.processed} URLs processed")
         except Exception as e:
@@ -742,6 +773,13 @@ class DeepHarvest:
         """Graceful shutdown"""
         logger.info("Shutting down DeepHarvest...")
 
+        # Save final checkpoint before shutdown
+        try:
+            await self._save_checkpoint()
+            logger.info("Final checkpoint saved during shutdown")
+        except Exception as e:
+            logger.warning(f"Failed to save final checkpoint during shutdown: {e}")
+
         if self.browser_scraper:
             await self.browser_scraper.close()
 
@@ -751,7 +789,7 @@ class DeepHarvest:
         # Close exporters
         for exporter_name, exporter in self.exporters.items():
             try:
-                if hasattr(exporter, 'close'):
+                if hasattr(exporter, "close"):
                     exporter.close()
                     logger.info(f"Closed exporter: {exporter_name}")
             except Exception as e:
